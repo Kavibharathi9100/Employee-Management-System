@@ -1,19 +1,13 @@
 from typing import Generator
-from urllib.parse import quote_plus
+
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker, DeclarativeBase
 
 from app.core.config import settings
 
-password = quote_plus(settings.DB_PASSWORD)
-DATABASE_URL = (
-    f"postgresql://{settings.DB_USER}:"
-    f"{password}@"
-    f"{settings.DATABASE_HOST}:"
-    f"{settings.DB_PORT}/"
-    f"{settings.DB_NAME}"
-)
+
+DATABASE_URL = settings.DATABASE_URL
 
 # Create SQLAlchemy Engine
 engine = create_engine(

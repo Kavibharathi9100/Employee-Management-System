@@ -3,11 +3,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # Database
-    DB_USER: str
-    DB_PASSWORD: str
-    DATABASE_HOST: str
-    DB_PORT: int
-    DB_NAME: str
+    # Database
+    DATABASE_URL: str
 
     # JWT
     SECRET_KEY: str
