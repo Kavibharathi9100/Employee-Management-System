@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str
     CELERY_RESULT_BACKEND: str
 
+    RESEND_API_KEY: str
+    FROM_EMAIL: str
+
     model_config = SettingsConfigDict(
         env_file=".env",
         extra="ignore"
