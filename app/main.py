@@ -12,7 +12,7 @@ from app.api.auth import router as auth_router
 from app.models.password_reset import PasswordReset
 
 # Create all tables
-#Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Employee Management System",
