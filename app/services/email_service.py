@@ -26,8 +26,10 @@ HRMS Team
 
     message.attach(MIMEText(body, "plain"))
 
-    with smtplib.SMTP(settings.SMTP_SERVER, settings.SMTP_PORT) as server:
-        server.starttls()
+    with smtplib.SMTP_SSL(
+        settings.SMTP_SERVER,
+        settings.SMTP_PORT
+    ) as server:
 
         server.login(
             settings.SMTP_USERNAME,
