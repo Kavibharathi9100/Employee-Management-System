@@ -4,22 +4,25 @@ from sqlalchemy.orm import Session
 
 from app.database.database import get_db
 from app.models.user import User
+
 from app.schemas.user import (
     UserCreate,
     UserResponse,
     RefreshTokenRequest,
     ChangePasswordRequest,
     ForgotPasswordRequest,
-    ResetPasswordRequest
+    ResetPasswordRequest,
 )
+
 from app.core.security import hash_password, verify_password
+
 from app.core.jwt_handler import (
     create_access_token,
     create_refresh_token,
-    verify_token
+    verify_token,
 )
+
 from app.auth.oauth2 import get_current_user
-from app.schemas.user import ForgotPasswordRequest
 from app.services.email_service import send_reset_email
 from app.core.config import settings
 
@@ -29,9 +32,9 @@ router = APIRouter(
 )
 
 
-# ==========================
-# Get Current Logged-in User
-# ==========================
+# ==================================================
+# Get Logged-in User
+# ==================================================
 @router.get("/me", response_model=UserResponse)
 def get_my_profile(
     current_user: User = Depends(get_current_user)
@@ -39,9 +42,9 @@ def get_my_profile(
     return current_user
 
 
-# ==========================
+# ==================================================
 # Register User
-# ==========================
+# ==================================================
 @router.post("/", response_model=UserResponse)
 def create_user(
     user: UserCreate,
@@ -74,56 +77,43 @@ def create_user(
     return new_user
 
 
-# ==========================
-# Login User
-# ==========================
+# ==================================================
+# Login
+# ==================================================
 @router.post("/login")
 def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
 
-    print("STEP 1")
-
-    db_user = (
+    user = (
         db.query(User)
         .filter(User.email == form_data.username)
         .first()
     )
 
-    print("STEP 2")
-
-    if not db_user:
+    if not user:
         raise HTTPException(
             status_code=401,
             detail="Invalid email or password"
         )
 
-    print("STEP 3")
-
     if not verify_password(
         form_data.password,
-        db_user.password
+        user.password
     ):
         raise HTTPException(
             status_code=401,
             detail="Invalid email or password"
         )
 
-    print("STEP 4")
-
     access_token = create_access_token(
-        data={
-            "sub": db_user.email
-        }
-    )
-    refresh_token = create_refresh_token(
-        data={
-            "sub": db_user.email
-        }
+        {"sub": user.email}
     )
 
-    print("STEP 5")
+    refresh_token = create_refresh_token(
+        {"sub": user.email}
+    )
 
     return {
         "access_token": access_token,
@@ -131,11 +121,22 @@ def login(
         "token_type": "bearer"
     }
 
+
+# ==================================================
+# Refresh Access Token
+# ==================================================
 @router.post("/refresh")
 def refresh_access_token(
     request: RefreshTokenRequest
 ):
+
     payload = verify_token(request.refresh_token)
+
+    if payload.get("type") != "refresh":
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid refresh token"
+        )
 
     email = payload.get("sub")
 
@@ -146,18 +147,18 @@ def refresh_access_token(
         )
 
     access_token = create_access_token(
-        data={
-            "sub": email
-        }
+        {"sub": email}
     )
 
     return {
         "access_token": access_token,
         "token_type": "bearer"
     }
-# ==========================
+
+
+# ==================================================
 # Change Password
-# ==========================
+# ==================================================
 @router.put("/change-password")
 def change_password(
     request: ChangePasswordRequest,
@@ -165,7 +166,6 @@ def change_password(
     db: Session = Depends(get_db)
 ):
 
-    # Verify current password
     if not verify_password(
         request.current_password,
         current_user.password
@@ -175,42 +175,36 @@ def change_password(
             detail="Current password is incorrect"
         )
 
-    # Check if new password is same as current password
     if verify_password(
         request.new_password,
         current_user.password
     ):
         raise HTTPException(
             status_code=400,
-            detail="New password cannot be the same as the current password"
+            detail="New password cannot be the same as current password"
         )
 
-    # Hash new password
     current_user.password = hash_password(
         request.new_password
     )
 
-    # Save changes
     db.commit()
-
-    # Refresh object
     db.refresh(current_user)
 
-    # Success response
     return {
         "message": "Password changed successfully"
     }
 
-# ==========================
+
+# ==================================================
 # Forgot Password
-# ==========================
+# ==================================================
 @router.post("/forgot-password")
 def forgot_password(
     request: ForgotPasswordRequest,
     db: Session = Depends(get_db)
 ):
 
-    # Check if user exists
     user = (
         db.query(User)
         .filter(User.email == request.email)
@@ -223,19 +217,14 @@ def forgot_password(
             detail="User not found"
         )
 
-    # Generate reset token
     reset_token = create_access_token(
-        data={
-            "sub": user.email
-        }
+        {"sub": user.email}
     )
 
-    # Create reset link
     reset_link = (
         f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
     )
 
-    # Send reset email
     send_reset_email(
         to_email=user.email,
         reset_link=reset_link
@@ -245,12 +234,25 @@ def forgot_password(
         "message": "Password reset link sent successfully"
     }
 
+
+# ==================================================
+# Reset Password
+# ==================================================
 @router.post("/reset-password")
 def reset_password(
     request: ResetPasswordRequest,
     db: Session = Depends(get_db)
 ):
-    email = verify_reset_token(request.token)
+
+    payload = verify_token(request.token)
+
+    if payload.get("type") != "access":
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid reset token"
+        )
+
+    email = payload.get("sub")
 
     if not email:
         raise HTTPException(
@@ -258,7 +260,11 @@ def reset_password(
             detail="Invalid or expired token"
         )
 
-    user = db.query(User).filter(User.email == email).first()
+    user = (
+        db.query(User)
+        .filter(User.email == email)
+        .first()
+    )
 
     if not user:
         raise HTTPException(
@@ -266,9 +272,12 @@ def reset_password(
             detail="User not found"
         )
 
-    user.password = hash_password(request.new_password)
+    user.password = hash_password(
+        request.new_password
+    )
 
     db.commit()
+    db.refresh(user)
 
     return {
         "message": "Password reset successfully"
