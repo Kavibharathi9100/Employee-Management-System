@@ -13,10 +13,12 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # Email
-    EMAIL_USERNAME: str
-    EMAIL_PASSWORD: str
+    
     SMTP_SERVER: str
     SMTP_PORT: int
+    SMTP_USERNAME: str
+    SMTP_PASSWORD: str
+    FROM_EMAIL: str
     FRONTEND_URL: str
 
     # Redis

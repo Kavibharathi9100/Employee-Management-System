@@ -1,59 +1,39 @@
-import resend
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 from app.core.config import settings
 
-# Set API Key
-resend.api_key = settings.RESEND_API_KEY
-
 
 def send_reset_email(to_email: str, reset_link: str):
-    """
-    Send password reset email using Resend.
-    """
+    message = MIMEMultipart()
 
-    try:
-        resend.Emails.send({
-            "from": settings.FROM_EMAIL,
-            "to": to_email,
-            "subject": "Reset Your Password",
-            "html": f"""
-            <h2>Password Reset Request</h2>
+    message["From"] = settings.FROM_EMAIL
+    message["To"] = to_email
+    message["Subject"] = "Reset Your Password"
 
-            <p>Hello,</p>
+    body = f"""
+Hello,
 
-            <p>You requested to reset your password.</p>
+Click the link below to reset your password.
 
-            <p>
-                <a href="{reset_link}"
-                   style="
-                       background:#2563eb;
-                       color:white;
-                       padding:12px 20px;
-                       text-decoration:none;
-                       border-radius:6px;
-                   ">
-                    Reset Password
-                </a>
-            </p>
+{reset_link}
 
-            <p>Or copy and paste this link into your browser:</p>
+This link expires in 15 minutes.
 
-            <p>{reset_link}</p>
+HRMS Team
+"""
 
-            <p>This link expires in 15 minutes.</p>
+    message.attach(MIMEText(body, "plain"))
 
-            <br>
+    with smtplib.SMTP(settings.SMTP_SERVER, settings.SMTP_PORT) as server:
+        server.starttls()
 
-            <p>Regards,</p>
-            <p>HRMS Team</p>
-            """
-        })
+        server.login(
+            settings.SMTP_USERNAME,
+            settings.SMTP_PASSWORD
+        )
 
-        return {
-            "status": "success",
-            "message": "Password reset email sent successfully"
-        }
+        server.send_message(message)
 
-    except Exception as e:
-        print("Resend Error:", e)
-        raise e
+    print("Email sent successfully")
